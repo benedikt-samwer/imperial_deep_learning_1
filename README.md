@@ -1,4 +1,4 @@
-# Deep Learning Assessment Part 1
+# Deep Learning Assessment Part 2
 
 **Imperial College London**
 
@@ -8,76 +8,60 @@
 
 **Grade:** A
 
-## Overview
+## Project Overview
 
-This repository contains the coursework submission for the first assessment of the Deep Learning module. The project focuses on solving an **image imputation problem** for medical imaging.
+This repository contains my solution for the first coursework of the Deep Learning module. The objective was to solve an **image imputation (inpainting)** problem for Magnetic Resonance Imaging (MRI) scans of human heads. The goal was to design and train a neural network to recover missing portions of corrupted MRI images.
 
-The objective was to design and train a deep neural network to recover missing portions of MRI (Magnetic Resonance Imaging) scans of human heads. This task simulates real-world scenarios where patient scans may be incomplete or corrupted to reduce scanning times.
+## Task Description
 
-## Project Highlights
+The assessment involved three main steps:
+1.  **Data Generation**: Using a pre-trained Latent Diffusion Model (LDM) to generate a synthetic dataset of realistic MRI brain scans.
+2.  **Data Preparation**: Creating a training pipeline that artificially corrupts the generated images to mimic the missing data patterns found in the test set.
+3.  **Model Design & Training**: Implementing and training a deep learning architecture to reconstruct the missing parts of the images.
 
-- **Deep Learning Framework:** PyTorch
-- **Architecture:** Custom U-Net with Skip Connections
-- **Key Techniques:** Synthetic Data Generation, Image Inpainting, Convolutional Neural Networks (CNNs)
-- **Result:** Successfully reconstructed missing anatomical structures in 64x64 MRI scans with high fidelity.
+## Methodology
 
-## Technical Implementation
+### 1. Data Generation and Preprocessing
+*   **Synthetic Data**: Generated **2048** high-quality MRI images (64x64 pixels) using a provided pre-trained Diffusion Model (`ese-invldm`). This served as the ground truth for training.
+*   **Corruption Strategy**: Analyzed the provided test set to extract the specific missing-data masks. These masks were then applied to the synthetic training images to create input-target pairs (corrupted image $\rightarrow$ original image).
+*   **Data Augmentation**: Used an 80/20 train-validation split to monitor overfitting.
 
-### 1. Data Strategy: Synthetic Ground Truth
+### 2. Model Architecture: Custom U-Net
+I implemented a custom **U-Net** architecture from scratch in PyTorch. The U-Net was chosen for its ability to capture both global context and local details, which is crucial for dense prediction tasks like inpainting.
 
-A major challenge of this assessment was the lack of labeled training data (i.e., complete images paired with corrupted ones). To overcome this:
+**Key Architecture Features:**
+*   **Encoder-Decoder Structure**: Symmetrical contracting and expanding paths.
+    *   **Encoder**: 4 blocks of double convolutional layers (3x3 kernels) with MaxPooling, extracting hierarchical features (channels: 64 $\rightarrow$ 128 $\rightarrow$ 256 $\rightarrow$ 512).
+    *   **Bottleneck**: High-dimensional feature representation with 1024 channels.
+    *   **Decoder**: 4 blocks using Transposed Convolutions for upsampling, recovering spatial resolution.
+*   **Skip Connections**: Concatenates feature maps from the encoder to the decoder to preserve fine-grained spatial information lost during downsampling.
+*   **Activation Function**: Used **SiLU** (Sigmoid Linear Unit) instead of ReLU for improved gradient flow and performance.
+*   **Regularization**:
+    *   **Batch Normalization**: Applied after each convolution to stabilize training.
+    *   **Dropout (p=0.2)**: Integrated into convolutional blocks to prevent overfitting.
 
-- **Generative Modelling:** I utilised a pre-trained generative model to create a large dataset of realistic, synthetic MRI brain images.
-- **Data Pipeline:** Implemented a custom corruption function that artificially removed parts of these synthetic images during training. This created infinite `(corrupted_input, complete_target)` pairs, allowing the model to learn robust inpainting features.
+### 3. Training
+*   **Loss Function**: Mean Squared Error (MSE) Loss.
+*   **Optimizer**: Adam (Learning Rate: 0.001).
+*   **Training Regime**: Trained for **150 epochs** on GPU.
+*   **Performance**: The model achieved a very low validation loss (~0.0005), demonstrating strong reconstruction capabilities.
 
-### 2. Model Architecture: U-Net
+## Repository Structure
 
-I designed and implemented a **U-Net** architecture from scratch. The U-Net was chosen for its ability to preserve spatial information through skip connections, which is critical for image reconstruction tasks.
-
-**Key Architectural Choices:**
-
-- **Encoder-Decoder Structure:** A contracting path (encoder) to capture context and a symmetric expanding path (decoder) to enable precise localization.
-- **Skip Connections:** Concatenated features from the encoder to the decoder to recover fine-grained spatial details lost during downsampling.
-- **Building Blocks:**
-  - **Convolutions:** 3x3 kernels with padding to maintain spatial dimensions.
-  - **Activation:** `SiLU` (Sigmoid Linear Unit) was selected over ReLU for its improved differentiability and performance in deep networks.
-  - **Normalization:** `BatchNorm2d` applied to stabilize training and mitigate internal covariate shift.
-  - **Regularization:** `Dropout2d` (p=0.2) included in convolutional blocks to prevent overfitting.
-- **Upsampling:** Uses `ConvTranspose2d` layers in the decoder to learn the upscaling filters.
-
-### 3. Training Configuration
-
-- **Loss Function:** `MSELoss` (Mean Squared Error) to strictly penalize pixel-level deviations from the ground truth.
-- **Optimizer:** `Adam` (lr=0.001) for adaptive learning rate management.
-- **Bottleneck:** A deep bottleneck layer (1024 channels) to capture high-level semantic features before reconstruction.
-
-## Project Structure
-
-- **`Assessment.ipynb`**: The main Jupyter notebook containing the complete solution: data generation, model implementation, training loop, and evaluation.
-- **`test_set.npy`**: The provided dataset of 100 corrupted MRI images (64x64 pixels).
-- **`test_set_nogaps.npy`**: The final model output containing the 100 restored images.
-- **`Instructions.md`**: Original coursework instructions.
-- **`References.md`**: Citations and resources used.
+*   `Assessment.ipynb`: The main Jupyter Notebook containing the full implementation:
+    *   Data generation with Diffusion Models.
+    *   `TensorDataset` and `DataLoader` creation.
+    *   U-Net class definition (`ConvBlock`, `EncBlock`, `DecBlock`).
+    *   Training loop with validation.
+    *   Visualization of results.
+*   `test_set.npy`: The original dataset of 100 corrupted images.
+*   `test_set_nogaps.npy`: The final output containing the 100 reconstructed images.
 
 ## Results
 
-The model was evaluated on the provided `test_set.npy`. Visual inspection confirmed that the network successfully inferred plausible anatomical structures in the missing regions, blending them seamlessly with the surrounding tissue.
+The model successfully learned to infer missing anatomical structures in the brain scans. Below is a summary of the training performance:
+*   **Final Train Loss**: ~0.0008
+*   **Final Validation Loss**: ~0.0005
 
-## Requirements
+The implemented U-Net demonstrated that convolution-based architectures with skip connections are highly effective for medical image reconstruction tasks where preserving structural integrity is paramount.
 
-- Python 3.x
-- PyTorch
-- NumPy
-- Matplotlib
-- Jupyter Notebook
-
-## Usage
-
-To examine the code and results:
-
-1. Open `Assessment.ipynb` in Jupyter Notebook or Google Colab.
-2. Run the cells to reproduce the data generation, training, and inference steps.
-
----
-
-*This work was assessed as part of the MSc ACSE curriculum at Imperial College London.*
